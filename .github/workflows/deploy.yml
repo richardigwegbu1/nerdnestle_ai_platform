@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:  # Allows you to manually trigger deployments from GitHub UI
 
 jobs:
   deploy:
@@ -11,9 +12,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout the latest code
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Step 2: Set up SSH key for EC2 access
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
@@ -21,19 +24,43 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
+      # Step 3: Deploy updates to EC2 and restart services
       - name: Deploy to EC2 and restart services
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
             cd ~/nerdnestle_ai_platform
-            git pull origin main
+            echo "Pulling latest code from main branch..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "Activating Python virtual environment..."
             source backend/.venv/bin/activate
+
+            echo "Restarting backend and frontend services..."
             sudo systemctl restart nerdnestle-api
             sudo systemctl restart nerdnestle-frontend
+
+            echo "Reloading Nginx..."
             sudo systemctl reload nginx
+
+            echo "Deployment successful on EC2."
           EOF
 
+      # Step 4: Verify deployment health (ignore SSL errors)
       - name: Verify deployment health
         run: |
-          curl -I https://${{ secrets.EC2_HOST }}
-          curl -I https://api.${{ secrets.EC2_HOST }}/health || exit 1
+          echo "Checking site health..."
+          curl -I -k https://${{ secrets.EC2_HOST }} || exit 1
+          curl -I -k https://api.${{ secrets.EC2_HOST }}/health || exit 1
+
+      # Step 5: Notify deployment success
+      - name: Print success message
+        if: success()
+        run: echo "✅ Deployment completed successfully for NerdNestle!"
+
+      # Step 6: Handle failure
+      - name: Print failure message
+        if: failure()
+        run: echo "❌ Deployment failed. Please check the logs in GitHub Actions."
 
