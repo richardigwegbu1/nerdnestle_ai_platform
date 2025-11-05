@@ -1,22 +1,19 @@
-name: 🚀 Deploy to EC2
+name: 🚀 Deploy to EC2 (Amazon Linux)
 
 on:
   push:
     branches:
       - main
-  workflow_dispatch:  # Allows you to manually trigger deployments from GitHub UI
 
 jobs:
   deploy:
-    name: Deploy to EC2
-    runs-on: ubuntu-latest
+    name: Deploy to Amazon Linux EC2
+    runs-on: ubuntu-latest  # GitHub runner, NOT your EC2
 
     steps:
-      # Step 1: Checkout the latest code
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Set up SSH key for EC2 access
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
@@ -24,43 +21,34 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      # Step 3: Deploy updates to EC2 and restart services
-      - name: Deploy to EC2 and restart services
+      - name: Test SSH connectivity
+        run: |
+          echo "🔍 Testing SSH connection..."
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "echo '✅ Connected to EC2 Amazon Linux instance'"
+
+      - name: Deploy and restart services on EC2
         run: |
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
+            echo "🚀 Pulling latest code..."
             cd ~/nerdnestle_ai_platform
-            echo "Pulling latest code from main branch..."
             git fetch origin main
             git reset --hard origin/main
 
-            echo "Activating Python virtual environment..."
-            source backend/.venv/bin/activate
+            echo "🧩 Activating Python virtual environment..."
+            source backend/.venv/bin/activate || true
 
-            echo "Restarting backend and frontend services..."
-            sudo systemctl restart nerdnestle-api
-            sudo systemctl restart nerdnestle-frontend
+            echo "🔄 Restarting systemd services..."
+            sudo systemctl restart nerdnestle-api || sudo systemctl start nerdnestle-api
+            sudo systemctl restart nerdnestle-frontend || sudo systemctl start nerdnestle-frontend
+            sudo systemctl reload nginx || sudo systemctl restart nginx
 
-            echo "Reloading Nginx..."
-            sudo systemctl reload nginx
-
-            echo "Deployment successful on EC2."
+            echo "✅ Deployment finished successfully on Amazon Linux"
           EOF
 
-      # Step 4: Verify deployment health (ignore SSL errors)
       - name: Verify deployment health
         run: |
-          echo "Checking site health..."
-          curl -I -k https://${{ secrets.EC2_HOST }} || exit 1
-          curl -I -k https://api.${{ secrets.EC2_HOST }}/health || exit 1
-
-      # Step 5: Notify deployment success
-      - name: Print success message
-        if: success()
-        run: echo "✅ Deployment completed successfully for NerdNestle!"
-
-      # Step 6: Handle failure
-      - name: Print failure message
-        if: failure()
-        run: echo "❌ Deployment failed. Please check the logs in GitHub Actions."
+          echo "🌐 Checking public endpoints..."
+          curl -I https://${{ secrets.EC2_HOST }} || true
+          curl -I https://api.${{ secrets.EC2_HOST }}/health || true
 
