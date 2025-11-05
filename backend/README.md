@@ -22,3 +22,4 @@ Open http://127.0.0.1:8000/docs
 ## Production (EC2)
 - Use **gunicorn** with the Uvicorn worker behind **Nginx**.
 - See `deploy/` for Nginx and systemd service examples.
+Automated deploy test - Wed Nov  5 05:02:03 UTC 2025
