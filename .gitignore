@@ -1,21 +1,32 @@
-# Python
-backend/.venv
-__pycache__
-
-# Node
-frontend/.next
-frontend/node_modules
-
-# Env
-.env
-backend/.env
-frontend/.env.local
-.env.*
+# ENV files
 *.env
 *.env.*
-*.env.local
-*.swo
-*.swp
+backend/.env*
+frontend/.env*
 
-# Virtual environment
-.venv/
+# Databases
+*.db
+backend/*.db
+
+# Logs
+*.log
+frontend/nohup.out
+
+# Node modules
+frontend/node_modules/
+
+# Python virtual env
+backend/.venv/
+
+# Build artifacts
+frontend/.next/
+frontend/out/
+
+# PM2 files
+*.pid
+*.pm2
+
+# System config files
+nginx.api.conf
+nerdnestle-api.service
+
