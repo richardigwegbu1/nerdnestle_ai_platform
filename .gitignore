@@ -29,4 +29,3 @@ frontend/out/
 # System config files
 nginx.api.conf
 nerdnestle-api.service
-
