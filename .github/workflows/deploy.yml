@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       # -------------------------------
-      # 2. Copy SSH Key
+      # 2. Configure SSH Key
       # -------------------------------
       - name: Configure SSH Key
         run: |
@@ -28,7 +28,7 @@ jobs:
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       # -------------------------------
-      # 3. Test SSH
+      # 3. Test SSH Connection
       # -------------------------------
       - name: Test SSH connectivity
         run: |
@@ -41,14 +41,15 @@ jobs:
         run: |
           ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
 
-          # Navigate to the correct project directory
+          # Navigate to project
           cd /home/ec2-user/nerdnest_ai_platform || exit 1
 
           echo "📥 Pulling latest code..."
           git reset --hard
           git pull origin main
 
-          echo "📦 Updating backend virtual environment..."
+          # ---------------- Backend ----------------
+          echo "📦 Updating backend..."
           cd backend
           source .venv/bin/activate
           pip install -r requirements.txt
@@ -56,12 +57,13 @@ jobs:
           echo "🔄 Restarting backend service..."
           sudo systemctl restart nerdnestle-api.service
 
+          # ---------------- Frontend ----------------
           echo "🌐 Updating frontend..."
           cd ../frontend
           npm install
           npm run build
 
-          echo "🚀 Restarting PM2 (Next.js)..."
+          echo "🚀 Restarting PM2..."
           pm2 reload pm2-frontend.config.js || pm2 start pm2-frontend.config.js
           pm2 save
 
