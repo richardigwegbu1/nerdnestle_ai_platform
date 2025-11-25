@@ -13,6 +13,7 @@ origins = [
     os.getenv("FRONTEND_URL", "http://localhost:3000"),
     "http://localhost:3000",
     "https://nerdnestle.com",
+    "https://nerdnest.ai",
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -26,7 +27,11 @@ app.add_middleware(
 def health():
     return {"status": "ok"}
 
-# -------- AI Generation (Stub) --------
+
+# ============================================================
+#               AI GENERATION (STUB)
+# ============================================================
+
 try:
     from openai import OpenAI
 except Exception:
@@ -39,15 +44,11 @@ class GeneratePayload(BaseModel):
 
 @app.post("/ai/generate")
 def ai_generate(payload: GeneratePayload):
-    """
-    Returns AI-generated copy (headline, subheadline, bullet points) for a landing page.
-    Replace with your preferred model & prompt style.
-    """
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise HTTPException(status_code=400, detail="OPENAI_API_KEY is not set")
     if OpenAI is None:
-        raise HTTPException(status_code=500, detail="openai SDK not available on server")
+        raise HTTPException(status_code=500, detail="openai SDK not available")
 
     client = OpenAI(api_key=api_key)
 
@@ -65,28 +66,65 @@ def ai_generate(payload: GeneratePayload):
         temperature=0.7,
     )
 
-    text = completion.output_text
-    return {"raw": text}
+    return {"raw": completion.output_text}
 
-# -------- Products (Simple Catalog) --------
+
+# ============================================================
+#                  PRODUCT CATALOG (UPDATED)
+# ============================================================
+
 class Product(BaseModel):
     id: str
+    slug: str
     title: str
     description: str
     price: float
     commission_pct: int
 
-PRODUCTS = [
-    Product(id="prod-001", title="AI Resume Kit", description="ATS-optimized resume + cover letter templates", price=49.0, commission_pct=80),
-    Product(id="prod-002", title="DevOps Starter Pack", description="Scripts, labs, and guides", price=99.0, commission_pct=85),
-    Product(id="prod-003", title="Linux Mastery Course", description="Self-paced training with labs", price=199.0, commission_pct=70),
+PRODUCTS: List[dict] = [
+    {
+        "id": "prod-001",
+        "slug": "ai-chat-assistant",
+        "title": "AI Chat Assistant",
+        "description": "Deploy a customizable AI chatbot for your website.",
+        "price": 49.0,
+        "commission_pct": 80
+    },
+    {
+        "id": "prod-002",
+        "slug": "ai-customer-support-assistant",
+        "title": "AI Customer Support Assistant",
+        "description": "Automated customer support trained on your data.",
+        "price": 99.0,
+        "commission_pct": 85
+    },
+    {
+        "id": "prod-003",
+        "slug": "ai-resume-analyzer",
+        "title": "AI Resume Analyzer",
+        "description": "Smart ATS resume scoring & job matching.",
+        "price": 69.0,
+        "commission_pct": 75
+    }
 ]
 
-@app.get("/products", response_model=List[Product])
-def list_products():
+# --- API used by the frontend ---
+@app.get("/api/products")
+def api_list_products():
     return PRODUCTS
 
-# -------- Stripe (Skeleton) --------
+@app.get("/api/products/{slug}")
+def api_get_product(slug: str):
+    for product in PRODUCTS:
+        if product["slug"] == slug:
+            return product
+    raise HTTPException(status_code=404, detail="Product not found")
+
+
+# ============================================================
+#                  STRIPE CHECKOUT
+# ============================================================
+
 try:
     import stripe
 except Exception:
@@ -94,33 +132,37 @@ except Exception:
 
 class CheckoutPayload(BaseModel):
     product_id: str
-    affiliate_account_id: Optional[str] = None  # Stripe Connect Account ID for split
+    affiliate_account_id: Optional[str] = None
 
 @app.post("/stripe/checkout")
 def create_checkout(payload: CheckoutPayload, request: Request):
     if stripe is None:
         raise HTTPException(status_code=500, detail="Stripe SDK not installed")
+
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
     if not stripe.api_key:
         raise HTTPException(status_code=400, detail="Stripe not configured")
 
-    product = next((p for p in PRODUCTS if p.id == payload.product_id), None)
+    product = next((p for p in PRODUCTS if p["id"] == payload.product_id), None)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
     origin = os.getenv("FRONTEND_URL", "http://localhost:3000")
 
-    application_fee_amount = int(product.price * 100 * 0.15)  # 15% platform fee as example
+    application_fee_amount = int(product["price"] * 100 * 0.15)
 
     kwargs = dict(
         mode="payment",
-        success_url=f"{origin}/success?pid={product.id}",
+        success_url=f"{origin}/success?pid={product['id']}",
         cancel_url=f"{origin}/cancel",
         line_items=[{
             "price_data": {
                 "currency": "usd",
-                "product_data": {"name": product.title, "description": product.description},
-                "unit_amount": int(product.price * 100),
+                "product_data": {
+                    "name": product["title"],
+                    "description": product["description"]
+                },
+                "unit_amount": int(product["price"] * 100),
             },
             "quantity": 1,
         }],
@@ -139,13 +181,17 @@ def create_checkout(payload: CheckoutPayload, request: Request):
 
     return {"id": session.id, "url": session.url}
 
+
 @app.post("/stripe/webhook")
 async def stripe_webhook(request: Request, stripe_signature: Optional[str] = Header(None)):
     if stripe is None:
         raise HTTPException(status_code=500, detail="Stripe SDK not installed")
+
     stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
     webhook_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+
     payload = await request.body()
+
     try:
         if webhook_secret:
             event = stripe.Webhook.construct_event(
@@ -158,7 +204,7 @@ async def stripe_webhook(request: Request, stripe_signature: Optional[str] = Hea
 
     if event["type"] == "checkout.session.completed":
         session = event["data"]["object"]
-        # TODO: Persist order and attribute to affiliate if present
         print("Payment completed:", session.get("id"))
 
     return {"received": True}
+
