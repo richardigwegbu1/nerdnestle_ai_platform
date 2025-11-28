@@ -1,86 +1,85 @@
+import Link from "next/link";
+import NavBar from "../components/NavBar";
+import { PRODUCTS } from "../lib/products";
+
 export default function Home() {
+  const popular = PRODUCTS.slice(0, 3);
+
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Hero Section */}
-      <section className="flex-1 flex flex-col justify-center items-center text-center px-6 py-20">
-        <h1 className="text-5xl font-extrabold text-gray-900 mb-4">
-          NerdNest AI Marketplace
-        </h1>
-        <p className="text-lg text-gray-600 max-w-2xl mb-8">
-          Build and launch AI-powered storefronts. Sell automation tools. Earn commissions.  
-          <span className="font-semibold text-indigo-600">All powered by NerdNest AI.</span>
-        </p>
+    <>
+      <NavBar />
+      <main className="nn-main">
+        <section className="nn-page-width">
+          <div className="nn-hero-card">
+            <div className="nn-hero-badge">
+              <span>New</span>
+              <span>AI Tools Marketplace</span>
+            </div>
 
-        <div className="flex gap-4">
-          <a
-            href="/products"
-            className="px-6 py-3 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700"
-          >
-            View Products
-          </a>
+            <h1 className="nn-hero-heading">NerdNest AI Marketplace</h1>
 
-          <a
-            href="/create-site"
-            className="px-6 py-3 bg-gray-800 text-white rounded-lg shadow hover:bg-gray-900"
-          >
-            Create AI Storefront
-          </a>
-
-          <a
-            href="/dashboard"
-            className="px-6 py-3 border border-gray-400 text-gray-700 rounded-lg hover:bg-gray-200"
-          >
-            Dashboard
-          </a>
-        </div>
-      </section>
-
-      {/* Products Preview */}
-      <section className="bg-white py-16 px-8 border-t">
-        <h2 className="text-center text-3xl font-bold mb-10">Popular AI Tools</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          
-          {/* Card 1 */}
-          <a
-            href="/products/ai-chat-assistant"
-            className="p-6 rounded-xl border shadow hover:shadow-lg transition bg-white"
-          >
-            <h3 className="text-xl font-semibold mb-2">AI Chat Assistant</h3>
-            <p className="text-gray-600">
-              Build a GPT-powered chat assistant for websites or businesses.
+            <p className="nn-hero-text">
+              Launch AI-powered tools, automation agents, and intelligent
+              services. Earn commissions, sell your own tools, and deploy apps
+              in minutes — all powered by NerdNest AI.
             </p>
-          </a>
 
-          {/* Card 2 */}
-          <a
-            href="/products/ai-resume-analyzer"
-            className="p-6 rounded-xl border shadow hover:shadow-lg transition bg-white"
-          >
-            <h3 className="text-xl font-semibold mb-2">AI Resume Analyzer</h3>
-            <p className="text-gray-600">
-              Automatically analyze resumes and generate job match reports.
-            </p>
-          </a>
+            <div className="nn-hero-actions">
+              <Link href="/products">
+                <button className="nn-btn nn-btn-primary">View Products</button>
+              </Link>
+              <Link href="/create-site">
+                <button className="nn-btn nn-btn-outline">
+                  Create AI Storefront
+                </button>
+              </Link>
+            </div>
+          </div>
 
-          {/* Card 3 */}
-          <a
-            href="/products/ai-customer-support-assistant"
-            className="p-6 rounded-xl border shadow hover:shadow-lg transition bg-white"
-          >
-            <h3 className="text-xl font-semibold mb-2">AI Support Assistant</h3>
-            <p className="text-gray-600">
-              Automate customer support 24/7 with intelligent responses.
-            </p>
-          </a>
-        </div>
-      </section>
+          <div style={{ marginTop: 36 }}>
+            <div className="nn-section-heading">Popular AI Tools</div>
+            <div className="nn-section-caption">
+              Start with one of our proven tools and plug it into your
+              storefront.
+            </div>
 
-      {/* Footer */}
-      <footer className="text-center py-6 text-gray-500 text-sm">
-        © {new Date().getFullYear()} NerdNest AI — Powered by Unix Training Academy
-      </footer>
-    </main>
+            <div className="nn-card-grid">
+              {popular.map((product) => (
+                <article key={product.id} className="nn-card">
+                  <div className="nn-card-header-row">
+                    <div className="nn-card-title">{product.name}</div>
+                    {product.badge && (
+                      <span className="nn-pill">{product.badge}</span>
+                    )}
+                  </div>
+
+                  <div className="nn-card-body">
+                    {product.shortDescription ||
+                      product.tagline ||
+                      "Plug-and-play AI automation for your workflow."}
+                  </div>
+
+                  <div className="nn-card-footer">
+                    <span className="nn-price-pill">
+                      {product.priceMonthly
+                        ? `$${product.priceMonthly}/month`
+                        : product.priceOnce
+                        ? `$${product.priceOnce} one-time`
+                        : "Custom pricing"}
+                    </span>
+                    <Link href={`/products/${product.slug}`}>
+                      <button className="nn-btn nn-btn-outline">
+                        Learn More →
+                      </button>
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      </main>
+    </>
   );
 }
 

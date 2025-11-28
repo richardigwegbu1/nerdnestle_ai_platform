@@ -1,85 +1,121 @@
-import axios from "axios";
 import { useRouter } from "next/router";
+import Link from "next/link";
+import NavBar from "../../components/NavBar";
+import { PRODUCTS } from "../../lib/products";
 
-export default function ProductPage({ product }) {
+export default function ProductDetailPage() {
   const router = useRouter();
+  const { slug } = router.query;
 
-  if (router.isFallback) {
-    return <div>Loading...</div>;
-  }
+  const product = PRODUCTS.find((p) => p.slug === slug);
 
   if (!product) {
     return (
-      <main style={{ padding: "2rem" }}>
-        <h1>Product Not Found</h1>
-        <p>The product you are looking for does not exist.</p>
-      </main>
+      <>
+        <NavBar />
+        <main className="nn-main">
+          <section className="nn-page-width">
+            <h1>Product not found</h1>
+            <p style={{ color: "#6b7280", marginTop: 8 }}>
+              We couldn’t find that AI tool. It may have been renamed or
+              removed.
+            </p>
+            <p style={{ marginTop: 16 }}>
+              <Link href="/products" className="nn-muted-link">
+                ← Back to products
+              </Link>
+            </p>
+          </section>
+        </main>
+      </>
     );
   }
 
   return (
-    <main style={{ padding: "2rem", maxWidth: "900px", margin: "0 auto" }}>
-      <h1>{product.name}</h1>
-      <p style={{ marginTop: "1rem" }}>{product.description}</p>
+    <>
+      <NavBar />
+      <main className="nn-main">
+        <section className="nn-product-layout">
+          <article className="nn-product-main-card">
+            <div className="nn-hero-badge">
+              <span>AI Tool</span>
+              {product.category && <span>{product.category}</span>}
+            </div>
+            <h1 style={{ fontSize: 26, margin: "16px 0 4px" }}>
+              {product.name}
+            </h1>
+            {product.tagline && (
+              <p className="nn-product-tagline">{product.tagline}</p>
+            )}
 
-      <div style={{ marginTop: "2rem" }}>
-        <button
-          onClick={() => router.push("/dashboard")}
-          style={{
-            padding: "0.75rem 1.25rem",
-            background: "#111",
-            color: "white",
-            borderRadius: "6px",
-            cursor: "pointer",
-            border: "none",
-          }}
-        >
-          Go to Dashboard
-        </button>
-      </div>
-    </main>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#4b5563",
+                marginTop: 4,
+                lineHeight: 1.6,
+              }}
+            >
+              {product.longDescription || product.shortDescription}
+            </p>
+          </article>
+
+          <aside className="nn-product-side-card">
+            <div
+              style={{
+                fontSize: 13,
+                color: "#4b5563",
+                marginBottom: 12,
+              }}
+            >
+              Pricing
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: 6,
+                marginBottom: 12,
+              }}
+            >
+              <span style={{ fontSize: 24, fontWeight: 700 }}>
+                {product.priceMonthly
+                  ? `$${product.priceMonthly}`
+                  : product.priceOnce
+                  ? `$${product.priceOnce}`
+                  : "Custom"}
+              </span>
+              <span style={{ fontSize: 13, color: "#6b7280" }}>
+                {product.priceMonthly
+                  ? "/month"
+                  : product.priceOnce
+                  ? " one-time"
+                  : ""}
+              </span>
+            </div>
+
+            <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 18 }}>
+              You’ll configure billing and API keys inside the dashboard before
+              going live.
+            </p>
+
+            <Link href="/dashboard">
+              <button
+                className="nn-btn nn-btn-primary"
+                style={{ width: "100%", marginBottom: 10 }}
+              >
+                Go to Dashboard
+              </button>
+            </Link>
+
+            <Link href="/products" className="nn-muted-link">
+              ← Back to all tools
+            </Link>
+          </aside>
+        </section>
+      </main>
+    </>
   );
-}
-
-export async function getStaticPaths() {
-  try {
-    const res = await axios.get("http://localhost:8000/api/products");
-    const products = res.data || [];
-
-    const paths = products.map((p) => ({
-      params: { slug: p.slug },
-    }));
-
-    return {
-      paths,
-      fallback: true,
-    };
-  } catch (err) {
-    console.error("Error loading product list:", err);
-    return {
-      paths: [],
-      fallback: true,
-    };
-  }
-}
-
-export async function getStaticProps({ params }) {
-  try {
-    const res = await axios.get(`http://localhost:8000/api/products/${params.slug}`);
-    return {
-      props: {
-        product: res.data || null,
-      },
-      revalidate: 10,
-    };
-  } catch (err) {
-    console.error("Error loading product:", err);
-    return {
-      props: {
-        product: null,
-      },
-      revalidate: 10,
-    };
-  }
 }
 
