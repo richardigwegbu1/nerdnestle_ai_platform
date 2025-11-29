@@ -15,9 +15,8 @@ router = APIRouter(prefix="/api/storefront", tags=["Storefront"])
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret-key")
 
-
 # ---------------------------------------------------------
-# TOKEN VERIFICATION
+# TOKEN VERIFICATION (for private routes)
 # ---------------------------------------------------------
 def verify_token(authorization: str = Header(None)):
     if not authorization:
@@ -36,7 +35,7 @@ def verify_token(authorization: str = Header(None)):
 
 
 # ---------------------------------------------------------
-# REQUEST MODEL
+# REQUEST MODEL FOR CREATION
 # ---------------------------------------------------------
 class StorefrontRequest(BaseModel):
     brand: str
@@ -77,8 +76,6 @@ async def create_storefront(payload: StorefrontRequest, user=Depends(verify_toke
     }
 
     result = await collection.insert_one(doc)
-
-    # include Mongo _id as string
     doc["_id"] = str(result.inserted_id)
 
     return {"success": True, "storefront": serialize_storefront(doc)}
@@ -101,7 +98,7 @@ async def list_storefronts(user=Depends(verify_token)):
 
 
 # ---------------------------------------------------------
-# GET ONE STOREFRONT
+# GET ONE PRIVATE STOREFRONT (requires login)
 # GET /api/storefront/{storefront_id}
 # ---------------------------------------------------------
 @router.get("/{storefront_id}")
@@ -113,4 +110,20 @@ async def get_storefront(storefront_id: str, user=Depends(verify_token)):
         raise HTTPException(status_code=404, detail="Storefront not found")
 
     return {"success": True, "storefront": serialize_storefront(doc)}
+
+
+# ---------------------------------------------------------
+# PUBLIC STOREFRONT (NO LOGIN REQUIRED)
+# GET /api/storefront/public/{storefront_id}
+# ---------------------------------------------------------
+@router.get("/public/{storefront_id}")
+async def get_storefront_public(storefront_id: str):
+    collection = db["storefronts"]
+
+    doc = await collection.find_one({"id": storefront_id})
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Storefront not found")
+
+    return serialize_storefront(doc)
 
