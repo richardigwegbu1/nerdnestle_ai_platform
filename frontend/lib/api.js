@@ -5,8 +5,7 @@ export const API_BASE_URL =
 
 /**
  * Fetch a public storefront by ID or key from the FastAPI backend.
- * For now this calls /api/storefront/public/{idOrKey}.
- * Backend can treat the param as a Mongo ObjectId OR a custom handle later.
+ * Calls: GET /api/storefront/public/{idOrKey}
  */
 export async function fetchStorefrontPublic(idOrKey) {
   if (!idOrKey) {
@@ -25,7 +24,39 @@ export async function fetchStorefrontPublic(idOrKey) {
     throw new Error(message);
   }
 
-  // Expecting JSON like: { brand, theme, created_at, tools: [...] }
+  // Expecting JSON like:
+  // { id, brand, theme, tools: [...], created_at, user_id }
   return res.json();
+}
+
+/**
+ * Fetch a public product by slug from the FastAPI backend.
+ * Calls: GET /api/products/public/{slug}
+ *
+ * Backend response shape:
+ * { success: true, product: { id, slug, title, description, price, commission_pct, status } }
+ */
+export async function fetchPublicProduct(slug) {
+  if (!slug) {
+    throw new Error("Product slug is required");
+  }
+
+  const url = `${API_BASE_URL}/api/products/public/${encodeURIComponent(slug)}`;
+
+  const res = await fetch(url);
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    const message = `Failed to fetch product (${res.status}): ${text}`;
+    throw new Error(message);
+  }
+
+  const data = await res.json();
+
+  if (!data || !data.product) {
+    throw new Error("Malformed product response from API");
+  }
+
+  return data.product;
 }
 

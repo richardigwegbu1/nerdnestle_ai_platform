@@ -35,12 +35,11 @@ app.add_middleware(
 )
 
 # ============================================
-# DEBUG ENDPOINT (NEW)
+# DEBUG ENDPOINT
 # ============================================
 @app.get("/debug/headers")
 async def debug_headers(request: Request):
     return {"received_headers": dict(request.headers)}
-
 
 # ============================================
 # Health
@@ -48,7 +47,6 @@ async def debug_headers(request: Request):
 @app.get("/health")
 def health():
     return {"status": "ok"}
-
 
 # ============================================
 # MongoDB Setup
@@ -62,7 +60,6 @@ if not MONGO_URL:
 mongo_client = AsyncIOMotorClient(MONGO_URL)
 db = mongo_client["nerdnest"]
 
-
 # ============================================
 # AUTH UTILITIES
 # ============================================
@@ -75,18 +72,14 @@ SECRET_KEY = os.getenv("JWT_SECRET", "CHANGE_ME_TO_A_LONG_RANDOM_SECRET")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24
 
-
 def hash_password(password: str):
     return pwd_context.hash(password)
-
 
 def verify_password(plain: str, hashed: str):
     return pwd_context.verify(plain, hashed)
 
-
 def create_access_token(data: dict):
     return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
-
 
 # ============================================
 # USER MODELS
@@ -95,11 +88,9 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
 
-
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
-
 
 # ============================================
 # SIGNUP
@@ -130,7 +121,6 @@ async def signup(user: UserCreate):
         },
     }
 
-
 # ============================================
 # LOGIN
 # ============================================
@@ -156,9 +146,8 @@ async def login(user: UserLogin):
         },
     }
 
-
 # ============================================
-# AUTH DEPENDENCY FIX (Handles Authorization header)
+# AUTH DEPENDENCY
 # ============================================
 async def get_current_user(authorization: str = Header(None)):
     if not authorization:
@@ -176,13 +165,14 @@ async def get_current_user(authorization: str = Header(None)):
 
     return payload  # contains user_id
 
-
 # ============================================
-# STORE FRONT ROUTER
+# ROUTERS
 # ============================================
 from routes.storefront import router as storefront_router
-app.include_router(storefront_router)
+from routes.products import router as products_router   # <-- NEW
 
+app.include_router(storefront_router)
+app.include_router(products_router)                    # <-- NEW
 
 # ============================================
 # Protected Storefront Endpoint (TEST)
@@ -190,7 +180,6 @@ app.include_router(storefront_router)
 @app.get("/api/storefront/list")
 async def storefront_list(user=Depends(get_current_user)):
     return {"message": "Auth success!", "user": user}
-
 
 # ============================================
 # AI GENERATION API
@@ -200,12 +189,10 @@ try:
 except:
     OpenAI = None
 
-
 class GeneratePayload(BaseModel):
     product_name: str
     niche: Optional[str] = None
     tone: Optional[str] = "professional"
-
 
 @app.post("/ai/generate")
 def ai_generate(payload: GeneratePayload):
@@ -233,9 +220,8 @@ def ai_generate(payload: GeneratePayload):
 
     return {"raw": completion.output_text}
 
-
 # ============================================
-# PRODUCT CATALOG
+# PRODUCT CATALOG (STATIC — old system)
 # ============================================
 class Product(BaseModel):
     id: str
@@ -244,7 +230,6 @@ class Product(BaseModel):
     description: str
     price: float
     commission_pct: int
-
 
 PRODUCTS = [
     {
@@ -273,11 +258,9 @@ PRODUCTS = [
     },
 ]
 
-
 @app.get("/api/products")
 def list_products():
     return PRODUCTS
-
 
 @app.get("/api/products/{slug}")
 def get_product(slug: str):
@@ -285,7 +268,6 @@ def get_product(slug: str):
         if p["slug"] == slug:
             return p
     raise HTTPException(status_code=404, detail="Product not found")
-
 
 # ============================================
 # STRIPE
@@ -295,11 +277,9 @@ try:
 except:
     stripe = None
 
-
 class CheckoutPayload(BaseModel):
     product_id: str
     affiliate_account_id: Optional[str] = None
-
 
 @app.post("/stripe/checkout")
 def stripe_checkout(payload: CheckoutPayload, request: Request):
@@ -334,7 +314,6 @@ def stripe_checkout(payload: CheckoutPayload, request: Request):
     )
 
     return {"id": session.id, "url": session.url}
-
 
 @app.post("/stripe/webhook")
 async def stripe_webhook(request: Request, stripe_signature: Optional[str] = Header(None)):

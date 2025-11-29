@@ -1,18 +1,35 @@
 // frontend/pages/storefront/[id].js
 
 import Head from "next/head";
-import { fetchStorefrontPublic } from "../../lib/api";
+import {
+  fetchStorefrontPublic,
+  fetchPublicProduct,
+} from "../../lib/api";
 
 export async function getServerSideProps(context) {
   const { id } = context.params;
 
   try {
+    // 1. Fetch storefront metadata
     const storefront = await fetchStorefrontPublic(id);
 
-    // If API returns null/undefined, treat as 404
-    if (!storefront) {
-      return { notFound: true };
+    // 2. Expand storefront.tools array → load each product by slug
+    const expandedTools = [];
+
+    if (Array.isArray(storefront.tools)) {
+      for (const slug of storefront.tools) {
+        try {
+          const product = await fetchPublicProduct(slug);
+          if (product?.product) {
+            expandedTools.push(product.product);
+          }
+        } catch (e) {
+          console.error(`Failed loading product: ${slug}`, e.message);
+        }
+      }
     }
+
+    storefront.expandedTools = expandedTools;
 
     return {
       props: {
@@ -21,17 +38,16 @@ export async function getServerSideProps(context) {
       },
     };
   } catch (err) {
-    console.error("Error fetching storefront:", err);
+    console.error("Error fetching storefront:", err.message);
 
-    // If backend returns 404, surface Next.js 404 page
-    if (err.message && err.message.includes("404")) {
+    if (err.message.includes("404")) {
       return { notFound: true };
     }
 
     return {
       props: {
         storefront: null,
-        error: "Unable to load this storefront. Please try again later.",
+        error: "This storefront is currently unavailable.",
       },
     };
   }
@@ -59,14 +75,12 @@ export default function StorefrontPage({ storefront, error }) {
 
   if (!storefront) return null;
 
-  const { brand, theme, tools = [], created_at } = storefront;
+  const { brand, theme, created_at, expandedTools = [] } = storefront;
 
   return (
     <>
       <Head>
-        <title>
-          {brand ? `${brand} | NerdNest AI Store` : "NerdNest AI Store"}
-        </title>
+        <title>{brand ? `${brand} | NerdNest AI Store` : "NerdNest AI Store"}</title>
         <meta
           name="description"
           content={
@@ -106,72 +120,37 @@ export default function StorefrontPage({ storefront, error }) {
             </a>
           </header>
 
-          {tools.length === 0 ? (
-            <p style={styles.emptyText}>
-              This storefront does not have any tools yet.
-            </p>
+          {/* ------------------------------------------------- */}
+          {/* PRODUCT GRID */}
+          {/* ------------------------------------------------- */}
+          {expandedTools.length === 0 ? (
+            <p style={styles.emptyText}>This storefront does not have any tools yet.</p>
           ) : (
             <section>
-              <h2 style={styles.sectionTitle}>Featured Tools</h2>
+              <h2 style={styles.sectionTitle}>Available Tools</h2>
 
               <div style={styles.toolGrid}>
-                {tools.map((tool) => (
-                  <article key={tool.slug || tool.id} style={styles.toolCard}>
+                {expandedTools.map((tool) => (
+                  <article key={tool.slug} style={styles.toolCard}>
                     <div style={styles.toolHeader}>
-                      <h3 style={styles.toolName}>{tool.name}</h3>
-                      {tool.badge && (
-                        <span style={styles.badge}>{tool.badge}</span>
-                      )}
+                      <h3 style={styles.toolName}>{tool.title}</h3>
+                      {tool.status && <span style={styles.badge}>{tool.status}</span>}
                     </div>
 
-                    {tool.tagline && (
-                      <p style={styles.toolTagline}>{tool.tagline}</p>
-                    )}
-
-                    {tool.shortDescription && (
-                      <p style={styles.toolDescription}>
-                        {tool.shortDescription}
-                      </p>
-                    )}
+                    <p style={styles.toolDescription}>{tool.description}</p>
 
                     <div style={styles.toolMeta}>
-                      {tool.category && (
-                        <span style={styles.metaPill}>{tool.category}</span>
-                      )}
-                      {tool.level && (
-                        <span style={styles.metaPill}>{tool.level}</span>
-                      )}
-                      {tool.status && (
-                        <span style={styles.metaPill}>{tool.status}</span>
-                      )}
+                      <span style={styles.metaPill}>${tool.price}</span>
+                      <span style={styles.metaPill}>{tool.commission_pct}% commission</span>
                     </div>
 
                     <div style={styles.toolFooter}>
-                      <div style={styles.pricing}>
-                        {tool.priceMonthly ? (
-                          <span style={styles.price}>
-                            ${tool.priceMonthly}/mo
-                          </span>
-                        ) : tool.priceOnce ? (
-                          <span style={styles.price}>
-                            ${tool.priceOnce} one-time
-                          </span>
-                        ) : (
-                          <span style={styles.priceMuted}>Pricing TBA</span>
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
+                      <a
+                        href={`/products/${tool.slug}`}
                         style={styles.primaryButton}
-                        onClick={() =>
-                          alert(
-                            `In Milestone 3, this will take users to the detail page for "${tool.name}".`
-                          )
-                        }
                       >
                         View Tool
-                      </button>
+                      </a>
                     </div>
                   </article>
                 ))}
@@ -190,148 +169,116 @@ export default function StorefrontPage({ storefront, error }) {
   );
 }
 
-// styles – same as your original, included fully for safety
+// ------------------------------------------------------------
+// INLINE STYLES (Same structure as earlier but updated)
+// ------------------------------------------------------------
 const styles = {
   main: {
+    padding: "40px 0",
+    background: "#f7f7f9",
     minHeight: "100vh",
-    background: "#050816",
-    color: "#f9fafb",
-    padding: "32px 16px",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif',
   },
   container: {
-    maxWidth: "1120px",
+    maxWidth: "960px",
     margin: "0 auto",
+    padding: "0 20px",
   },
   header: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: "16px",
-    marginBottom: "32px",
+    marginBottom: "30px",
   },
   brand: {
-    fontSize: "2rem",
-    fontWeight: 700,
-    margin: 0,
+    fontSize: "32px",
+    marginBottom: "10px",
   },
   subText: {
-    margin: "4px 0",
-    color: "#9ca3af",
-    fontSize: "0.9rem",
+    fontSize: "14px",
+    color: "#666",
   },
   backLink: {
-    fontSize: "0.9rem",
-    color: "#a5b4fc",
+    fontSize: "14px",
+    color: "#0070f3",
     textDecoration: "none",
-    border: "1px solid #4f46e5",
-    padding: "6px 10px",
-    borderRadius: "999px",
-  },
-  emptyText: {
-    marginTop: "24px",
-    color: "#9ca3af",
+    marginTop: "8px",
   },
   sectionTitle: {
-    fontSize: "1.25rem",
-    fontWeight: 600,
-    margin: "8px 0 16px",
+    fontSize: "22px",
+    fontWeight: "600",
+    marginBottom: "20px",
   },
   toolGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-    gap: "16px",
+    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    gap: "22px",
   },
   toolCard: {
-    background:
-      "linear-gradient(135deg, rgba(79,70,229,0.2), rgba(17,24,39,0.95))",
-    borderRadius: "16px",
-    padding: "16px",
-    border: "1px solid rgba(148,163,184,0.3)",
+    padding: "20px",
+    background: "#fff",
+    borderRadius: "10px",
+    border: "1px solid #e5e7eb",
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
-    gap: "8px",
   },
   toolHeader: {
     display: "flex",
     justifyContent: "space-between",
-    alignItems: "center",
-    gap: "8px",
+    marginBottom: "10px",
   },
   toolName: {
-    margin: 0,
-    fontSize: "1.1rem",
-    fontWeight: 600,
+    fontSize: "18px",
+    fontWeight: "600",
   },
   badge: {
-    fontSize: "0.75rem",
-    padding: "2px 8px",
-    borderRadius: "999px",
-    background: "#22c55e",
-    color: "#022c22",
-    fontWeight: 600,
-  },
-  toolTagline: {
-    margin: "4px 0",
-    fontSize: "0.95rem",
-    color: "#e5e7eb",
+    background: "#10b981",
+    color: "#fff",
+    padding: "4px 8px",
+    borderRadius: "6px",
+    fontSize: "12px",
+    height: "fit-content",
   },
   toolDescription: {
-    margin: "4px 0 0",
-    fontSize: "0.85rem",
-    color: "#9ca3af",
+    fontSize: "14px",
+    color: "#555",
   },
   toolMeta: {
+    marginTop: "10px",
     display: "flex",
+    gap: "8px",
     flexWrap: "wrap",
-    gap: "6px",
-    marginTop: "8px",
   },
   metaPill: {
-    fontSize: "0.7rem",
-    padding: "3px 8px",
-    borderRadius: "999px",
-    border: "1px solid rgba(148,163,184,0.5)",
-    color: "#e5e7eb",
+    background: "#eef2ff",
+    padding: "4px 10px",
+    borderRadius: "8px",
+    fontSize: "12px",
   },
   toolFooter: {
-    marginTop: "12px",
+    marginTop: "20px",
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "8px",
-  },
-  pricing: {
-    fontSize: "0.9rem",
-  },
-  price: {
-    fontWeight: 700,
-  },
-  priceMuted: {
-    color: "#9ca3af",
-    fontSize: "0.85rem",
+    justifyContent: "flex-end",
   },
   primaryButton: {
-    border: "none",
-    cursor: "pointer",
-    padding: "8px 14px",
-    borderRadius: "999px",
-    background:
-      "linear-gradient(135deg, #4f46e5, #6366f1, #22c55e)",
-    color: "#f9fafb",
-    fontSize: "0.85rem",
-    fontWeight: 600,
-    whiteSpace: "nowrap",
+    padding: "10px 16px",
+    background: "#4f46e5",
+    color: "white",
+    borderRadius: "6px",
+    textDecoration: "none",
+    fontSize: "14px",
+  },
+  emptyText: {
+    padding: "20px 0",
+    color: "#777",
   },
   footer: {
     marginTop: "40px",
     textAlign: "center",
+    paddingTop: "20px",
+    borderTop: "1px solid #ddd",
   },
   footerText: {
-    color: "#6b7280",
-    fontSize: "0.85rem",
+    color: "#777",
   },
 };
 
