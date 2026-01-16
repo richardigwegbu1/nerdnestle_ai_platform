@@ -1,110 +1,101 @@
-import { useState } from "react";
-import Link from "next/link";
-import NavBar from "../components/NavBar";
-import { saveToken } from "../lib/auth";
+// pages/login.js
+"use client";
+import { useState, useEffect } from "react";
+import Router from "next/router";
 
-export default function Login() {
+export default function LoginPage() {
+  const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [code, setCode] = useState("");
+  const apiBase = "https://nerdnest.ai/api/auth";
 
-  async function handleLogin(e) {
+  useEffect(() => {
+    // Hydrate saved email (optional)
+    const savedEmail = typeof window !== "undefined" && localStorage.getItem("nn_email");
+    if (savedEmail) setEmail(savedEmail);
+  }, []);
+
+  async function sendLoginCode(e) {
     e.preventDefault();
-    setError("");
 
-    try {
-      const res = await fetch("https://api.nerdnest.ai/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+    if (!email) return alert("Enter a valid email");
 
-      const data = await res.json();
+    const res = await fetch(`${apiBase}/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
 
-      if (!res.ok) {
-        setError(data.detail || "Login failed");
-        return;
-      }
+    const data = await res.json();
 
-      // Save JWT in localStorage (lib/auth.js)
-      saveToken(data.token);
-
-      // Redirect to dashboard
-      window.location.href = "/dashboard";
-    } catch (err) {
-      setError("Network error. Please try again.");
+    if (res.ok) {
+      localStorage.setItem("nn_email", email.toLowerCase().trim());
+      setStep("code");
+    } else {
+      alert(data.detail || "Something went wrong");
     }
   }
 
+  async function verifyCode(e) {
+    e.preventDefault();
+
+    if (!code) return alert("Enter your verification code");
+
+    const formData = new FormData();
+    formData.append("email", email.toLowerCase().trim());
+    formData.append("code", code);
+
+    const res = await fetch(`${apiBase}/verify-code`, {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.detail || "Invalid code");
+      return;
+    }
+
+    // SAVE TOKEN
+    localStorage.setItem("nn_token", data.token);
+    localStorage.setItem("nn_email", data.email);
+
+    Router.push("/dashboard");
+  }
+
   return (
-    <>
-      <NavBar />
-      <main className="nn-main">
-        <section className="nn-auth-page">
-          <div className="nn-auth-card">
-            <div className="nn-auth-title">Log in</div>
-            <div className="nn-auth-subtitle">
-              Access your NerdNest dashboard and storefront.
-            </div>
+    <main style={{ padding: "2rem", maxWidth: "400px", margin: "0 auto" }}>
+      <h2>Log in to NerdNest AI</h2>
 
-            {error && (
-              <p
-                style={{
-                  color: "red",
-                  marginBottom: 10,
-                  fontSize: 12,
-                }}
-              >
-                {error}
-              </p>
-            )}
+      {step === "email" && (
+        <form onSubmit={sendLoginCode}>
+          <label>Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
 
-            <form onSubmit={handleLogin}>
-              <div className="nn-field">
-                <label>Email</label>
-                <input
-                  className="nn-input"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="nn-field">
-                <label>Password</label>
-                <input
-                  className="nn-input"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
+          <button type="submit">Send Login Code</button>
+        </form>
+      )}
 
-              <button
-                type="submit"
-                className="nn-btn nn-btn-primary"
-                style={{ width: "100%", marginTop: 18 }}
-              >
-                Continue
-              </button>
-            </form>
+      {step === "code" && (
+        <form onSubmit={verifyCode}>
+          <label>Enter Verification Code</label>
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            required
+          />
 
-            <p
-              style={{
-                marginTop: 14,
-                fontSize: 12,
-                color: "#9ca3af",
-                textAlign: "center",
-              }}
-            >
-              Don’t have an account?{" "}
-              <Link href="/signup">
-                <span style={{ color: "#4f46e5" }}>Sign up</span>
-              </Link>
-            </p>
-          </div>
-        </section>
-      </main>
-    </>
+          <button type="submit">Verify & Log In</button>
+        </form>
+      )}
+    </main>
   );
 }
 

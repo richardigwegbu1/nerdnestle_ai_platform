@@ -1,6 +1,6 @@
 // lib/auth.js
 export function saveToken(token) {
-  if (typeof window !== "undefined") {
+  if (typeof window !== "undefined" && token) {
     localStorage.setItem("nn_token", token);
   }
 }

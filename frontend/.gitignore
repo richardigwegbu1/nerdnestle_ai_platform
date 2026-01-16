@@ -1,0 +1,47 @@
+
+# Local env files (never commit)
+.env
+.env.*
+!.env.local.example
+
+# Editor / swap
+*.swp
+*.swo
+*~
+
+# Node / Next build
+node_modules/
+.next/
+out/
+
+# PM2
+pids/
+logs/
+
+# OS
+.DS_Store
+
+
+# Local env files (never commit)
+.env
+.env.*
+!.env.local.example
+
+# Editor / swap
+*.swp
+*.swo
+*~
+
+# Node / Next build
+node_modules/
+.next/
+out/
+
+# PM2
+pids/
+logs/
+
+# OS
+.DS_Store
+
+.env.local.local
